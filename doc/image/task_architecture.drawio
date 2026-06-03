@@ -1,0 +1,196 @@
+<mxfile host="Electron" modified="2026-05-07T00:00:00.000Z" agent="Claude" version="21.6.2">
+<diagram id="task-arch" name="任务架构">
+  <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
+    <root>
+      <mxCell id="0" />
+      <mxCell id="1" parent="0" />
+
+      <!-- ====== 标题 ====== -->
+      <mxCell id="title" value="TpControl V01 — FreeRTOS 任务架构" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=20;fontStyle=1;fontColor=#333333;" vertex="1" parent="1">
+        <mxGeometry x="300" y="10" width="500" height="40" as="geometry" />
+      </mxCell>
+
+      <!-- ====== 区域背景：Task Layer ====== -->
+      <mxCell id="taskBg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#A5D6A7;strokeWidth=2;dashed=1;" vertex="1" parent="1">
+        <mxGeometry x="30" y="60" width="1100" height="130" as="geometry" />
+      </mxCell>
+      <mxCell id="taskLabel" value="任务层 (Task Layer)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;fontStyle=0;fontColor=#388E3C;" vertex="1" parent="1">
+        <mxGeometry x="40" y="65" width="200" height="20" as="geometry" />
+      </mxCell>
+
+      <!-- ====== 区域背景：Sync Layer ====== -->
+      <mxCell id="syncBg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#FFE082;strokeWidth=2;dashed=1;" vertex="1" parent="1">
+        <mxGeometry x="30" y="210" width="1100" height="100" as="geometry" />
+      </mxCell>
+      <mxCell id="syncLabel" value="同步层 (Synchronization)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;fontStyle=0;fontColor=#F9A825;" vertex="1" parent="1">
+        <mxGeometry x="40" y="215" width="200" height="20" as="geometry" />
+      </mxCell>
+
+      <!-- ====== 区域背景：Hardware Layer ====== -->
+      <mxCell id="hwBg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#90CAF9;strokeWidth=2;dashed=1;" vertex="1" parent="1">
+        <mxGeometry x="30" y="330" width="1100" height="180" as="geometry" />
+      </mxCell>
+      <mxCell id="hwLabel" value="硬件层 (Hardware)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;fontStyle=0;fontColor=#1565C0;" vertex="1" parent="1">
+        <mxGeometry x="40" y="335" width="200" height="20" as="geometry" />
+      </mxCell>
+
+      <!-- ====== 任务 1: rtcTask ====== -->
+      <mxCell id="rtcTask" value="&lt;b&gt;rtcTask&lt;/b&gt;&lt;br&gt;优先级: Low+2&lt;br&gt;栈: 256B&lt;br&gt;功能: 每秒读取RTC时间&lt;br&gt;→ 通知 guiTask 刷新" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCDD2;strokeColor=#E53935;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="910" y="85" width="190" height="80" as="geometry" />
+      </mxCell>
+
+      <!-- ====== 任务 2: guiTask ====== -->
+      <mxCell id="guiTask" value="&lt;b&gt;guiTask (HMI)&lt;/b&gt;&lt;br&gt;优先级: Low&lt;br&gt;栈: 1536B&lt;br&gt;功能: LCD显示+背光控制&lt;br&gt;→ 读取littlefs字体/图片" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#43A047;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="60" y="85" width="200" height="80" as="geometry" />
+      </mxCell>
+
+      <!-- ====== 任务 3: sensorTask ====== -->
+      <mxCell id="sensorTask" value="&lt;b&gt;sensorTask&lt;/b&gt;&lt;br&gt;优先级: Normal&lt;br&gt;栈: 512B&lt;br&gt;功能: DS18B20温度 + AC湿度&lt;br&gt;→ 更新共享数据结构" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1E88E5;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="310" y="85" width="190" height="80" as="geometry" />
+      </mxCell>
+
+      <!-- ====== 任务 4: ctrlTask ====== -->
+      <mxCell id="ctrlTask" value="&lt;b&gt;ctrlTask (控制逻辑)&lt;/b&gt;&lt;br&gt;优先级: Normal+1&lt;br&gt;栈: 512B&lt;br&gt;功能: 控温/控湿/告警/模式&lt;br&gt;→ 控制加热/风扇/蜂鸣器" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#8E24AA;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="550" y="85" width="200" height="80" as="geometry" />
+      </mxCell>
+
+      <!-- ====== 任务 5: commTask ====== -->
+      <mxCell id="commTask" value="&lt;b&gt;commTask (BLE)&lt;/b&gt;&lt;br&gt;优先级: Low&lt;br&gt;栈: 512B&lt;br&gt;功能: 定时发送遥测数据&lt;br&gt;→ 接收并解析BLE命令" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#FB8C00;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="800" y="85" width="190" height="80" as="geometry" />
+      </mxCell>
+
+      <!-- ====== 同步层 ====== -->
+
+      <!-- mutex_spi1 -->
+      <mxCell id="mutexSpi1" value="&lt;b&gt;mutex_spi1&lt;/b&gt;&lt;br&gt;SPI1 总线互斥锁&lt;br&gt;(递归锁，保护 TFT + Flash)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FF9800;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="100" y="235" width="200" height="50" as="geometry" />
+      </mxCell>
+
+      <!-- rtc_sema -->
+      <mxCell id="rtcSema" value="&lt;b&gt;rtc_sema&lt;/b&gt;&lt;br&gt;RTC 秒中断信号量" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FF9800;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="500" y="235" width="150" height="50" as="geometry" />
+      </mxCell>
+
+      <!-- littlefs lock -->
+      <mxCell id="lfsLock" value="&lt;b&gt;LFS_LOCK (mutex_lfs)&lt;/b&gt;&lt;br&gt;littlefs 文件系统锁" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FF9800;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="800" y="235" width="180" height="50" as="geometry" />
+      </mxCell>
+
+      <!-- ====== 硬件层 ====== -->
+
+      <!-- RTC -->
+      <mxCell id="hwRtc" value="&lt;b&gt;RTC&lt;/b&gt;&lt;br&gt;内部 RTC + LSE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="910" y="360" width="120" height="60" as="geometry" />
+      </mxCell>
+
+      <!-- DS18B20 -->
+      <mxCell id="hwDs18b20" value="&lt;b&gt;DS18B20&lt;/b&gt;&lt;br&gt;温度传感器 (PA0)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="310" y="360" width="130" height="60" as="geometry" />
+      </mxCell>
+
+      <!-- ADC2 / Humidity -->
+      <mxCell id="hwHumidity" value="&lt;b&gt;AC 湿度传感器&lt;/b&gt;&lt;br&gt;ADC2 采集 + TIM1 激励" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="490" y="360" width="140" height="60" as="geometry" />
+      </mxCell>
+
+      <!-- W25Q80 -->
+      <mxCell id="hwW25q80" value="&lt;b&gt;W25Q80 (SPI Flash)&lt;/b&gt;&lt;br&gt;8Mbit, littlefs 存储" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="60" y="360" width="140" height="60" as="geometry" />
+      </mxCell>
+
+      <!-- TFT LCD -->
+      <mxCell id="hwTft" value="&lt;b&gt;TFT LCD 1.8&quot;&lt;/b&gt;&lt;br&gt;128x160, ST7735-like&lt;br&gt;SPI1 + PB7 CS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="60" y="440" width="140" height="55" as="geometry" />
+      </mxCell>
+
+      <!-- BLE UART -->
+      <mxCell id="hwBle" value="&lt;b&gt;BLE 模块&lt;/b&gt;&lt;br&gt;USART1 @ 9600bps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="800" y="360" width="130" height="60" as="geometry" />
+      </mxCell>
+
+      <!-- Key + Encoder -->
+      <mxCell id="hwKey" value="&lt;b&gt;按键 + EC11&lt;/b&gt;&lt;br&gt;Key A/B + 旋转编码器" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="310" y="445" width="130" height="50" as="geometry" />
+      </mxCell>
+
+      <!-- Buzzer -->
+      <mxCell id="hwBuzzer" value="&lt;b&gt;蜂鸣器 + LED&lt;/b&gt;&lt;br&gt;PWM 驱动" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="490" y="445" width="130" height="50" as="geometry" />
+      </mxCell>
+
+      <!-- ====== 连线 ====== -->
+
+      <!-- rtcTask → RTC (hardware) -->
+      <mxCell id="edge_rtc_hw" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#E53935;strokeWidth=2;dashed=0;" edge="1" source="rtcTask" target="hwRtc" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- rtcTask → rtc_sema (release) -->
+      <mxCell id="edge_rtc_sema" value="osSemaphoreRelease" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#E53935;strokeWidth=1;dashed=1;fontSize=10;" edge="1" source="rtcTask" target="rtcSema" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- rtc_sema → guiTask (signal) -->
+      <mxCell id="edge_sema_gui" value="osThreadFlagsSet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#43A047;strokeWidth=1;dashed=1;fontSize=10;" edge="1" source="rtcSema" target="guiTask" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- guiTask → mutex_spi1 -->
+      <mxCell id="edge_gui_mutex" value="acquire" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#43A047;strokeWidth=1;dashed=1;fontSize=10;" edge="1" source="guiTask" target="mutexSpi1" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- mutex_spi1 → W25Q80 -->
+      <mxCell id="edge_mutex_w25" value="SPI 操作" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#FF9800;strokeWidth=1;dashed=1;fontSize=10;" edge="1" source="mutexSpi1" target="hwW25q80" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- mutex_spi1 → TFT -->
+      <mxCell id="edge_mutex_tft" value="SPI 操作" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#FF9800;strokeWidth=1;dashed=1;fontSize=10;" edge="1" source="mutexSpi1" target="hwTft" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- guiTask → littlefs lock -->
+      <mxCell id="edge_gui_lfs" value="读取字体/图片" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#43A047;strokeWidth=1;dashed=1;fontSize=10;" edge="1" source="guiTask" target="lfsLock" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- sensorTask → DS18B20 -->
+      <mxCell id="edge_sens_ds" value="1-Wire 读取" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#1E88E5;strokeWidth=1;fontSize=10;" edge="1" source="sensorTask" target="hwDs18b20" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- sensorTask → ADC Humidity -->
+      <mxCell id="edge_sens_hum" value="ADC 采集" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#1E88E5;strokeWidth=1;fontSize=10;" edge="1" source="sensorTask" target="hwHumidity" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- ctrlTask → Buzzer -->
+      <mxCell id="edge_ctrl_buzz" value="PWM 控制" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8E24AA;strokeWidth=1;fontSize=10;" edge="1" source="ctrlTask" target="hwBuzzer" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- ctrlTask → Key (input reading) -->
+      <mxCell id="edge_ctrl_key" value="读取按键状态" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8E24AA;strokeWidth=1;dashed=1;fontSize=10;" edge="1" source="ctrlTask" target="hwKey" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- commTask → BLE -->
+      <mxCell id="edge_comm_ble" value="UART 收发" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#FB8C00;strokeWidth=1;fontSize=10;" edge="1" source="commTask" target="hwBle" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- sensorTask → ctrlTask (data flow) -->
+      <mxCell id="edge_sens_ctrl" value="温度/湿度数据 (共享变量)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#1E88E5;strokeWidth=1;dashed=1;fontSize=10;" edge="1" source="sensorTask" target="ctrlTask" parent="1">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+
+      <!-- ====== Legend ====== -->
+      <mxCell id="legendBox" value="&lt;b&gt;图例&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#43A047&quot;&gt;━━&lt;/font&gt; GUI显示路径&lt;br&gt;&lt;font color=&quot;#1E88E5&quot;&gt;━━&lt;/font&gt; 传感器数据流&lt;br&gt;&lt;font color=&quot;#8E24AA&quot;&gt;━━&lt;/font&gt; 控制路径&lt;br&gt;&lt;font color=&quot;#FB8C00&quot;&gt;━━&lt;/font&gt; 通信路径&lt;br&gt;&lt;font color=&quot;#E53935&quot;&gt;━━&lt;/font&gt; RTC同步路径&lt;br&gt;&lt;font color=&quot;#FF9800&quot;&gt;━ ━&lt;/font&gt; 互斥锁保护&lt;br&gt;&lt;font color=&quot;#E53935&quot;&gt;━ ━&lt;/font&gt; 信号量释放" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#BDBDBD;strokeWidth=1;fontSize=11;" vertex="1" parent="1">
+        <mxGeometry x="920" y="440" width="180" height="160" as="geometry" />
+      </mxCell>
+
+    </root>
+  </mxGraphModel>
+</diagram>
+</mxfile>

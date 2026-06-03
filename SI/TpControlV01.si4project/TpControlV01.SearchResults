@@ -1,0 +1,9 @@
+---- HAL_TIM_PWM_MspInit Matches (8 in 2 files) ----
+stm32f1xx_hal_tim.c (E:\code\c\stm32\clion\TpControl_V01\Drivers\STM32F1xx_HAL_Driver\Src) line 68 :            (++) PWM generation : HAL_TIM_PWM_MspInit()
+HAL_TIM_PWM_Init in stm32f1xx_hal_tim.c (E:\code\c\stm32\clion\TpControl_V01\Drivers\STM32F1xx_HAL_Driver\Src) :       htim->PWM_MspInitCallback = HAL_TIM_PWM_MspInit;
+HAL_TIM_PWM_Init in stm32f1xx_hal_tim.c (E:\code\c\stm32\clion\TpControl_V01\Drivers\STM32F1xx_HAL_Driver\Src) :     HAL_TIM_PWM_MspInit(htim);
+stm32f1xx_hal_tim.c (E:\code\c\stm32\clion\TpControl_V01\Drivers\STM32F1xx_HAL_Driver\Src) line 1418 : __weak void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim)
+HAL_TIM_PWM_MspInit in stm32f1xx_hal_tim.c (E:\code\c\stm32\clion\TpControl_V01\Drivers\STM32F1xx_HAL_Driver\Src) :             the HAL_TIM_PWM_MspInit could be implemented in the user file
+HAL_TIM_UnRegisterCallback in stm32f1xx_hal_tim.c (E:\code\c\stm32\clion\TpControl_V01\Drivers\STM32F1xx_HAL_Driver\Src) :         htim->PWM_MspInitCallback               = HAL_TIM_PWM_MspInit;
+HAL_TIM_UnRegisterCallback in stm32f1xx_hal_tim.c (E:\code\c\stm32\clion\TpControl_V01\Drivers\STM32F1xx_HAL_Driver\Src) :         htim->PWM_MspInitCallback          = HAL_TIM_PWM_MspInit;
+stm32f1xx_hal_tim.h (E:\code\c\stm32\clion\TpControl_V01\Drivers\STM32F1xx_HAL_Driver\Inc) line 1937 : void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim);
