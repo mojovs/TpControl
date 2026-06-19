@@ -124,7 +124,7 @@ void HAL_SuspendTick(void)
 
 /**
   * @brief  Resume Tick increment.
-  * @note   Enable the tick increment by Enabling TIM4 update interrupt.
+  * @note   Enable the tick increment by enabling TIM4 update interrupt.
   * @param  None
   * @retval None
   */
@@ -134,3 +134,17 @@ void HAL_ResumeTick(void)
   __HAL_TIM_ENABLE_IT(&htim4, TIM_IT_UPDATE);
 }
 
+/**
+  * @brief  Period elapsed callback for TIM4 time base.
+  * @note   This callback increments the HAL tick counter used by HAL_Delay().
+  *         Called by HAL_TIM_IRQHandler on TIM4 update event.
+  * @param  htim: TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim->Instance == TIM4)
+  {
+    HAL_IncTick();
+  }
+}

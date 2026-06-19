@@ -382,7 +382,7 @@ uint8_t rtc_get_week(uint16_t year, uint8_t month, uint8_t day)
  * @param       sec   : 秒钟
  * @retval      转换后的秒钟数
  */
-static long rtc_date2sec(uint16_t syear, uint8_t smon, uint8_t sday, uint8_t hour, uint8_t min, uint8_t sec)
+long rtc_date2sec(uint16_t syear, uint8_t smon, uint8_t sday, uint8_t hour, uint8_t min, uint8_t sec)
 {
     uint32_t Y, M, D, X, T;
     signed char monx = smon;    /* 将月份转换成带符号的值, 方便后面运算 */

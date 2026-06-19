@@ -24,8 +24,15 @@
 #include "Humidity.h"
 #include "Image.h"
 #include "rtc.h"
+#include "Key/key.h"
 #include "Fs/w25q80_fs.h"
 #include "app_config.h"
+#include "MyTask.h"
+#include "control.h"
+
+#ifdef WRITE_CJHR31
+#include "cjhr31_table_write.h"
+#endif
 void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
 
@@ -34,7 +41,7 @@ void MX_FREERTOS_Init(void);
   * @retval int
   */
 
-void flash_test(void);
+// void flash_test(void);
 void lfs_test(void);
 void temp_test(void);
 void test_ble(void)
@@ -73,9 +80,13 @@ int main(void)
   ble_send("flash inited\r\n");
   LCD_GPIO_Init();
   w25q80_init_fs(); //初始化文件系统
-  // 1) 读ID
+
   uint8_t mid; uint16_t did;
   w25q80_read_id(&mid,&did);
+// #ifdef WRITE_CJHR31
+//   cjhr31_table_write_to_lfs();
+// #endif
+
 
   lfs_list_dir("/");
 
@@ -83,9 +94,12 @@ int main(void)
   Lcd_Init();
   delay_ms(100);
   Lcd_Init();
-  Lcd_Clear(WHITE);
+  Lcd_Clear(BLACK);
+    // scene_Main_Static();
+  // flash_test();
   tim3_init();
-  lcd_set_light(5);  //设置lcd亮度
+  key_init();
+  lcd_set_light(10);  //设置lcd亮度
   buzz_init();
   tim1_init();  //定时器初始化
   adc2_init();  //初始化adc2 1
@@ -93,29 +107,8 @@ int main(void)
   //flash_test();
   led_init();
   temperature_init();
+  control_init();
   //write_image();
-#if 0
-  // u8 err=lfs_mkdir(&lfs,"/font");
-  // if (err != LFS_ERR_OK)
-  // {
-  //   ble_send("mkdir err\n");
-  // }
-   lfs_write_GB12();
-   lfs_write_GB16();
-     lfs_write_sz_32();
-     lfs_write_asc_1206();
-     lfs_write_asc_1608();
-
-#endif
-
-   //   Gui_ShowChinese(0,0,(u8*)"频率",RED,WHITE,12,0);
-   //   Gui_ShowString(0,12,(u8*)"test",RED,WHITE,12,0);
-   // Gui_DrawFont_Num32(0,24,"1",RED,WHITE);
-   // Gui_DrawFont_Num32(32,24,"2",RED,WHITE);
-
-//  Gui_ShowChinese(0,12,(u8*)"定时",RED,WHITE,12,1);
-  //Gui_ShowString(0,12,"Test",RED,WHITE,12,0); res res
-
   osKernelStart();
 
 
@@ -128,6 +121,7 @@ int main(void)
 }
 void flash_test(void)
 {
+#if 0
   //设置 亮度
   u8 data[100]={0};
   u8 MID;
@@ -154,6 +148,11 @@ void flash_test(void)
   xsprintf(data,"%s",arry_r);
   Gui_ShowString(48,36,data,RED,WHITE,12,0);
   memset(data,0,sizeof(data));
+#endif
+  Gui_showimage_24x24("/images/bean_24x24.bin",0,0);
+  // print_string_gui(25,12,WHITE,BLACK,"nadou");
+  u8 buf[12]="纳豆模式";
+  Gui_ShowChinese(25,12,buf,WHITE,BLACK,12,0);
 }
 
 

@@ -50,6 +50,7 @@
 #include <stdlib.h>
 #endif
 
+#define LFS_NO_ASSERT
 #ifndef LFS_NO_ASSERT
 #include <assert.h>
 #endif
@@ -71,9 +72,10 @@ extern "C"
 // code footprint
 
 // Logging functions
-//#define LFS_TRACE
+// #define LFS_TRACE
 // #define LFS_YES_TRACE
 #ifndef LFS_TRACE
+
 #ifdef LFS_YES_TRACE
 #define LFS_TRACE_(fmt, ...) \
     ble_send("%s:%d:trace: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
@@ -115,7 +117,7 @@ extern "C"
 #endif
 
 // Runtime assertions
-#define LFS_NO_ASSERT
+// #define LFS_NO_ASSERT
 #ifndef LFS_ASSERT
 #ifndef LFS_NO_ASSERT
 #define LFS_ASSERT(test) assert(test)

@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 
 #include "cmsis_os2.h"
+#include "delay.h"
 #include "lfs.h"
 #include "MyTask.h"
 #include "spi_sel.h"
@@ -146,7 +147,7 @@ u8 w25q80_wait_busy(void)
         if (kernel_running) {
             osDelay(1);
         } else {
-            HAL_Delay(1);
+            delay_ms(1);
         }
     }
 }

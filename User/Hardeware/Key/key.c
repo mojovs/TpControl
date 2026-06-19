@@ -6,6 +6,7 @@
 #define KEY_C_H
 #include "key.h"
 #include "delay.h"
+#include "MyTask.h"
 
 /* KEY_A	按键	PB8
 * KEY_B	按键	PB3
@@ -58,13 +59,16 @@ void ec11_spin(void)
     //检测B相，为高，那么则顺时针
     if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_15) ==1)
     {
-
+        osThreadFlagsSet(gui_task_hdl, GUI_FLAG_EC11_CW);
     }else
     {
-
+        osThreadFlagsSet(gui_task_hdl, GUI_FLAG_EC11_CCW);
     }
 
 }
+
+/* EC11 按键消抖：上次按下的系统 tick */
+static uint32_t last_ec_down_tick = 0;
 void ec11_add_redcut(u8* val, u16 max_min, u8 mode)
 {
     if (mode == 1) //加
@@ -87,7 +91,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     {
         //EC11 A相的下降沿的时候
         case GPIO_PIN_14:
-
+            ec11_spin();
         break;
         // 按键A
         case GPIO_PIN_8:
@@ -98,6 +102,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
         // EC11 按下
         case GPIO_PIN_9:
+        {
+            uint32_t now = HAL_GetTick();
+            if (now - last_ec_down_tick >= 250)
+            {
+                last_ec_down_tick = now;
+                osThreadFlagsSet(gui_task_hdl, GUI_FLAG_EC11_PRESS);
+            }
+        }
         break;
     }
 }

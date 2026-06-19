@@ -21,7 +21,7 @@ extern calendar_obj calendar;                      /* 时间结构体 */
 
 /* 静态函数 */
 static uint8_t rtc_is_leap_year(uint16_t year);     /* 判断当前年份是不是闰年 */
-static long rtc_date2sec(uint16_t syear, uint8_t smon, uint8_t sday, uint8_t hour, uint8_t min, uint8_t sec);   /* 将年月日时分秒转换成秒钟数 */
+long rtc_date2sec(uint16_t syear, uint8_t smon, uint8_t sday, uint8_t hour, uint8_t min, uint8_t sec);   /* 将年月日时分秒转换成秒钟数 */
 
 /* 接口函数 */
 uint8_t rtc_init(void);                             /* 初始化RTC */

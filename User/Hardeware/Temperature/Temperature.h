@@ -27,6 +27,7 @@ uint8_t ds18b20_read_bit(void);
 uint8_t ds18b20_read_byte(void);
 void ds18b20_start(void);
 short ds18b20_get_temperature(void);
+short ds18b20_read_temperature(void);
 void show_termperature();
 
 

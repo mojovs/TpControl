@@ -45,12 +45,13 @@ elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "MinSizeRel")
     message(STATUS "Maximum optimization for size")
     add_compile_options(-Os)
 else ()
-    message(STATUS "Minimal optimization, debug info included")
-    add_compile_options(-Og -g)
+    message(STATUS "Maximum optimization for size, debug info included")
+    add_compile_options(-Os -g)
 endif ()
 
 include_directories(Core/Inc Drivers/STM32F1xx_HAL_Driver/Inc Drivers/STM32F1xx_HAL_Driver/Inc/Legacy Middlewares/Third_Party/FreeRTOS/Source/include Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2 Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM3 Drivers/CMSIS/Device/ST/STM32F1xx/Include Drivers/CMSIS/Include
         User
+        User/Gui
         User/System/Tasks
         User/System/Stdio
         User/System/Resource
@@ -69,12 +70,68 @@ include_directories(Core/Inc Drivers/STM32F1xx_HAL_Driver/Inc Drivers/STM32F1xx_
         User/Hardeware/BLE
         User/Hardeware/Humidity
         User/Hardeware/RTC
+        User/Hardeware/Control
+        img
+        img/icon_12x12
+        img/icon_24x24
+        img/icon_24x48
 )
 
 add_definitions(-DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB)
 
+set(WRITE_IMAGE_GROUP "12x12" CACHE STRING "Image write batch: none, 12x12, 24x24, 48x24")
+set_property(CACHE WRITE_IMAGE_GROUP PROPERTY STRINGS none 12x12 24x24 24x48)
+
+set(IMAGE_SOURCES)
+if ("${WRITE_IMAGE_GROUP}" STREQUAL "12x12")
+    add_compile_definitions(WRITE_IMAGE_ICON_12X12=1 WRITE_IMAGE_ICON_24X24=0 WRITE_IMAGE_ICON_48x24=0)
+    file(GLOB IMAGE_SOURCES "img/icon_12x12/*.c")
+elseif ("${WRITE_IMAGE_GROUP}" STREQUAL "24x24")
+    add_compile_definitions(WRITE_IMAGE_ICON_12X12=0 WRITE_IMAGE_ICON_24X24=1 WRITE_IMAGE_ICON_48x24=0)
+    file(GLOB IMAGE_SOURCES "img/icon_24x24/*.c")
+elseif ("${WRITE_IMAGE_GROUP}" STREQUAL "48x24")
+    add_compile_definitions(WRITE_IMAGE_ICON_12X12=0 WRITE_IMAGE_ICON_24X24=0 WRITE_IMAGE_ICON_48x24=1)
+    file(GLOB IMAGE_SOURCES "img/icon_24x48/*.c")
+else ()
+    add_compile_definitions(WRITE_IMAGE_ICON_12X12=0 WRITE_IMAGE_ICON_24X24=0 WRITE_IMAGE_ICON_48x24=0)
+endif ()
+
+option(WRITE_FONT_GB12 "Write img/font12.c to W25Q80 /font/GB12.bin" OFF)
+option(WRITE_FONT_GB16 "Write img/font16.c to W25Q80 /font/GB16.bin" OFF)
+option(WRITE_CJHR31 "Write CJHR31 lookup table to W25Q80 /sys/rh_table.bin" OFF)
+option(WRITE_ASCII "Write ascii lookup table to W25Q80 " OFF)
+option(FLASH_WRITE "Include font write-once data (ascii_1608, sz32, lfs_write functions)" OFF)
+
+set(FONT_SOURCES)
+set(CJHR31_SOURCES)
+if (FLASH_WRITE)
+    add_compile_definitions(FLASH_WRITE=1)
+    list(APPEND FONT_SOURCES "User/Hardeware/Lcd/Font_Write.c")
+else ()
+    add_compile_definitions(FLASH_WRITE=0)
+endif ()
+if (WRITE_FONT_GB12)
+    add_compile_definitions(WRITE_FONT_GB12=1)
+else ()
+    add_compile_definitions(WRITE_FONT_GB12=0)
+endif ()
+
+if (WRITE_FONT_GB16)
+    add_compile_definitions(WRITE_FONT_GB16=1)
+else ()
+    add_compile_definitions(WRITE_FONT_GB16=0)
+endif ()
+
+if (WRITE_CJHR31)
+    add_compile_definitions(WRITE_CJHR31=1)
+    list(APPEND CJHR31_SOURCES "User/Hardeware/Humidity/cjhr31_table_write.c")
+else ()
+    add_compile_definitions(WRITE_CJHR31=0)
+endif ()
+
 file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*"
         "User/*.*"
+        "User/Gui/*.*"
         "User/System/*.*"
         "User/System/Tasks/*.*"
         "User/System/Stdio/*.*"
@@ -92,14 +149,19 @@ file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*"
         "User/Hardeware/BLE/*.*"
         "User/Hardeware/Humidity/*.*"
         "User/Hardeware/RTC/*.*"
+        "User/Hardeware/Control/*.*"
 )
 list(REMOVE_ITEM SOURCES
         "${CMAKE_SOURCE_DIR}/User/System/Resource/resource_uart.c"
         "${CMAKE_SOURCE_DIR}/User/System/Resource/ymodem.c"
         "${CMAKE_SOURCE_DIR}/User/Hardeware/Uart/retarget.c"
+        "${CMAKE_SOURCE_DIR}/User/Hardeware/Lcd/Font_Write.c"
+        "${CMAKE_SOURCE_DIR}/User/Hardeware/Humidity/cjhr31_table_write.c"
         "User/System/Resource/resource_uart.c"
         "User/System/Resource/ymodem.c"
         "User/Hardeware/Uart/retarget.c"
+        "User/Hardeware/Lcd/Font_Write.c"
+        "User/Hardeware/Humidity/cjhr31_table_write.c"
 )
 
 set(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/STM32F103C8TX_FLASH.ld )
@@ -109,7 +171,7 @@ add_link_options(-mcpu=cortex-m3 -mthumb -mthumb-interwork)
 add_link_options(-T ${LINKER_SCRIPT})
  add_link_options(-specs=nano.specs -specs=nosys.specs)
 
-add_executable(${PROJECT_NAME}.elf ${SOURCES} ${LINKER_SCRIPT})
+add_executable(${PROJECT_NAME}.elf ${SOURCES} ${IMAGE_SOURCES} ${FONT_SOURCES} ${CJHR31_SOURCES} ${LINKER_SCRIPT})
 
 set(HEX_FILE ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.hex)
 set(BIN_FILE ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.bin)

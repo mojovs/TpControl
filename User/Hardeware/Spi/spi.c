@@ -32,7 +32,7 @@ void spi1_init()
     spi_handler_1.Init.CRCPolynomial=7; //CRC值计算多项式
 
     HAL_SPI_Init(&spi_handler_1);
-    spi1_set_speed(2);
+    spi1_set_speed(0);  // DIV2 = 36MHz
     __HAL_SPI_ENABLE(&spi_handler_1);
 }
 

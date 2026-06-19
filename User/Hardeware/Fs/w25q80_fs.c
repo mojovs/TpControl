@@ -1,5 +1,8 @@
-#include"w25q80_fs.h"
+#include "w25q80_fs.h"
 
+#include <string.h>
+
+#include "app_config.h"
 #include "cmsis_os2.h"
 #include "delay.h"
 #include "Gui.h"
@@ -8,6 +11,23 @@
 #include "spi_sel.h"
 
 lfs_t lfs;
+
+#define FONT_CN_INDEX_MAX      64
+#define FONT_CN_INDEX_INVALID   0xFFFFFFFFUL
+
+typedef struct
+{
+    uint8_t utf8[3];
+    uint32_t offset;
+} font_cn_index_item_t;
+
+static font_cn_index_item_t font_gb12_index[FONT_CN_INDEX_MAX];
+static font_cn_index_item_t font_gb16_index[FONT_CN_INDEX_MAX];
+static uint16_t font_gb12_index_count = 0;
+static uint16_t font_gb16_index_count = 0;
+static uint8_t font_gb12_index_ready = 0;
+static uint8_t font_gb16_index_ready = 0;
+
 // configuration of the filesystem is provided by this struct
 struct lfs_config cfg_w25q80_fs= {
     // block device operations
@@ -19,7 +39,7 @@ struct lfs_config cfg_w25q80_fs= {
     .unlock=lfs_unlock,
 
     // block device configuration
-    .read_size = 64,    //读取16字节
+    .read_size = 256,    //读取16字节
     .prog_size = 256,
     .block_size = 4096,
     .block_count = 256,
@@ -61,6 +81,11 @@ int w25q80_sync_fs(const struct lfs_config* c)
 
 int lfs_lock(const struct lfs_config *c)
 {
+    if (osKernelGetState() != osKernelRunning)
+    {
+        return LFS_ERR_OK;
+
+    }
     if (osMutexAcquire(mutex_spi1,osWaitForever)!= osOK)
     {
         LFS_TRACE("Mutex erro");
@@ -70,6 +95,11 @@ int lfs_lock(const struct lfs_config *c)
 }
 int lfs_unlock(const struct lfs_config *c)
 {
+    if (osKernelGetState() != osKernelRunning)
+    {
+        return LFS_ERR_OK;
+
+    }
     if (osMutexRelease(mutex_spi1)!= osOK)
     {
         return LFS_ERR_IO;
@@ -79,31 +109,154 @@ int lfs_unlock(const struct lfs_config *c)
 
 void w25q80_init_fs()
 {
-    //挂载
-    //选中flash
+    int err;
 
-    int err=lfs_mount(&lfs,&cfg_w25q80_fs);
+#if LFS_FORCE_FORMAT
+    /* 强制格式化（开发调试用途） */
+    ble_send("Force formatting...\r\n");
+    err = lfs_format(&lfs, &cfg_w25q80_fs);
+    if (err) {
+        ble_send("Format failed: %d\r\n", err);
+        while (1);
+    }
+    ble_send("Format OK\r\n");
+#endif
+
+    // 挂载文件系统
+    err = lfs_mount(&lfs, &cfg_w25q80_fs);
+
     if (err) {
         // 挂载失败，进行格式化
-        //Gui_ShowString(48,0,"Mount failed ,format",RED,WHITE,12,0);
-        delay_ms(1000);
-        lfs_format(&lfs, &cfg_w25q80_fs);
+        ble_send("Mount failed (%d), formatting...\r\n", err);
+        delay_ms(100);
+
+        err = lfs_format(&lfs, &cfg_w25q80_fs);
+        if (err) {
+            ble_send("Format failed: %d\r\n", err);
+            while (1);
+        }
+        ble_send("Format OK\r\n");
+
         // 再次尝试挂载
         err = lfs_mount(&lfs, &cfg_w25q80_fs);
         if (err) {
-            // 格式化后挂载仍然失败，处理错误
-            while(1);
+            ble_send("Remount failed after format: %d\r\n", err);
+            while (1);
         }
     }
+    ble_send("littlefs mounted OK\r\n");
 }
 
-void w25q80_close_fs()
+static const char *font_cn_path(u8 size)
 {
-    lfs_unmount(&lfs);  //解除挂载
+    if (size == 12)
+    {
+        return "/font/GB12.bin";
+    }
+    else if (size == 16)
+    {
+        return "/font/GB16.bin";
+    }
+
+    return NULL;
 }
-void mount_lfs(){
-    lfs_mount(&lfs,&cfg_w25q80_fs);
+
+static font_cn_index_item_t *font_cn_index_table(u8 size, uint16_t **count, uint8_t **ready)
+{
+    if (size == 12)
+    {
+        *count = &font_gb12_index_count;
+        *ready = &font_gb12_index_ready;
+        return font_gb12_index;
+    }
+    else if (size == 16)
+    {
+        *count = &font_gb16_index_count;
+        *ready = &font_gb16_index_ready;
+        return font_gb16_index;
+    }
+
+    *count = NULL;
+    *ready = NULL;
+    return NULL;
 }
+
+static int font_build_cn_index(u8 size)
+{
+    lfs_file_t file;
+    const char *path = font_cn_path(size);
+    uint16_t *count = NULL;
+    uint8_t *ready = NULL;
+    font_cn_index_item_t *table = font_cn_index_table(size, &count, &ready);
+    u8 typeFaceNum = (size / 8 + ((size % 8) ? 1 : 0)) * size;
+    uint32_t offset = 0;
+    int err;
+
+    if ((path == NULL) || (table == NULL))
+    {
+        return -1;
+    }
+
+    if (*ready)
+    {
+        return 0;
+    }
+
+    *count = 0;
+    err = lfs_file_open(&lfs, &file, path, LFS_O_RDONLY);
+    if (err)
+    {
+        return -1;
+    }
+
+    while (*count < FONT_CN_INDEX_MAX)
+    {
+        if (lfs_file_read(&lfs, &file, table[*count].utf8, 3) != 3)
+        {
+            *ready = 1;
+            lfs_file_close(&lfs, &file);
+            return 0;
+        }
+
+        table[*count].offset = offset + 3;
+        (*count)++;
+
+        if (lfs_file_seek(&lfs, &file, typeFaceNum, LFS_SEEK_CUR) < 0)
+        {
+            lfs_file_close(&lfs, &file);
+            return -1;
+        }
+
+        offset += 3 + typeFaceNum;
+    }
+
+    lfs_file_close(&lfs, &file);
+    *ready = 0;
+    return -1;
+}
+
+static uint32_t font_find_offset_CN_cache(const uint8_t *utf8, u8 size)
+{
+    uint16_t *count = NULL;
+    uint8_t *ready = NULL;
+    font_cn_index_item_t *table = font_cn_index_table(size, &count, &ready);
+
+    if ((table == NULL) || (font_build_cn_index(size) != 0))
+    {
+        return FONT_CN_INDEX_INVALID;
+    }
+
+    for (uint16_t i = 0; i < *count; i++)
+    {
+        if (memcmp(table[i].utf8, utf8, 3) == 0)
+        {
+            return table[i].offset;
+        }
+    }
+
+    return FONT_CN_INDEX_INVALID;
+}
+
 void lfs_list_dir(const char *path)
 {
     lfs_dir_t dir;
@@ -133,15 +286,13 @@ void lfs_list_dir(const char *path)
 
         if (strcmp(path, "/") == 0)
         {
-            snprintf(fullpath,
-                     sizeof(fullpath),
+            xsprintf(fullpath,
                      "/%s",
                      info.name);
         }
         else
         {
-            snprintf(fullpath,
-                     sizeof(fullpath),
+            xsprintf(fullpath,
                      "%s/%s",
                      path,
                      info.name);
@@ -165,64 +316,46 @@ void lfs_list_dir(const char *path)
     lfs_dir_close(&lfs, &dir);
 }
 u16 font_find_offset_CN(u8 *utf8, u8 size) {
+    uint32_t offset = font_find_offset_CN_cache(utf8, size);
 
-    lfs_file_t file;
-    u8 err=0;
-    u8 typeFaceNum = (size / 8 + ((size % 8) ? 1 : 0)) * size; //
-
-    if(size==12){
-        err=lfs_file_open(&lfs, &file, "/font/GB12.bin", LFS_O_RDONLY);
-    }else if(size == 16){
-        err=lfs_file_open(&lfs, &file, "/font/GB16.bin", LFS_O_RDONLY);
-    }
-    if (err)
+    if (offset == FONT_CN_INDEX_INVALID)
     {
-        return err;
+        return (u16)-1;
     }
 
-    uint8_t buf[3];
-
-    for(int i=0; ;i++){
-        //读3个
-        if(lfs_file_read(&lfs,&file, buf, 3) != 3)
-            break;
-
-        //对比下和输入参数的区别
-        if(memcmp(buf, utf8, 3)==0){
-            lfs_file_close(&lfs,&file);
-                return (typeFaceNum+3)*i+3; // 指向点阵开始位置
-        }
-
-        //再进24个，跳到下一个字符组
-        lfs_file_seek(&lfs,&file, typeFaceNum, LFS_SEEK_CUR);
-    }
-
-    lfs_file_close(&lfs,&file);
-    return -1;
-
+    return (u16)offset;
 }
 
 int font_read_CN(const char *utf8, uint8_t *buf, u8 size) {
 
-    int offset = font_find_offset_CN(utf8,size);
-    if(offset < 0){
+    lfs_file_t file;
+    const char *path = font_cn_path(size);
+    uint32_t offset = font_find_offset_CN_cache((const uint8_t*)utf8, size);
+    u8 typeFaceNum = (size / 8 + ((size % 8) ? 1 : 0)) * size;
+    int err;
+
+    if ((path == NULL) || (offset == FONT_CN_INDEX_INVALID))
+    {
         return -1;
     }
-    u8 typeFaceNum = (size / 8 + ((size % 8) ? 1 : 0)) * size; //
-    lfs_file_t file;
-    char  err=0;
-    if(size==12){
-        err=lfs_file_open(&lfs, &file, "/font/GB12.bin", LFS_O_RDONLY);
-    }else if(size == 16){
-        err=lfs_file_open(&lfs, &file, "/font/GB16.bin", LFS_O_RDONLY);
-    }
+
+    err = lfs_file_open(&lfs, &file, path, LFS_O_RDONLY);
     if (err)
     {
         return -1;
     }
 
-    lfs_file_seek(&lfs, &file, offset, LFS_SEEK_SET);
-    lfs_file_read(&lfs, &file, buf,typeFaceNum );
+    if (lfs_file_seek(&lfs, &file, offset, LFS_SEEK_SET) < 0)
+    {
+        lfs_file_close(&lfs, &file);
+        return -1;
+    }
+
+    if (lfs_file_read(&lfs, &file, buf, typeFaceNum) != typeFaceNum)
+    {
+        lfs_file_close(&lfs, &file);
+        return -1;
+    }
 
     lfs_file_close(&lfs, &file);
     return 0;

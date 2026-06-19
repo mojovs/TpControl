@@ -3,7 +3,6 @@
 //
 #include "adc.h"
 
-#include <stdio.h>
 #include "stm32f1xx_ll_adc.h"
 #include "cmsis_os2.h"
 #include "delay.h"
@@ -50,12 +49,12 @@ void humidity_start(void)
 
 u16 humidity_get_value_single(void)
 {
-    if (HAL_ADC_PollForConversion(&adc2_handler, 2) == HAL_OK)
+    if (HAL_ADC_PollForConversion(&adc2_handler, 10) == HAL_OK)
     {
-        return  (u16)HAL_ADC_GetValue(&adc2_handler);
+        return (u16)HAL_ADC_GetValue(&adc2_handler);
     }
 
-    return -1;
+    return 0;   /* 超时返回 0，由调用侧过滤 */
 }
 
 void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)

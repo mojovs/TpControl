@@ -9,14 +9,14 @@
 #include "led.h"
 #include "adc.h"
 #include "ble.h"
-#include "Gui.h"
-#include "xprintf.h"
+#include "GuiTask.h"
 #include "delay.h"
 #include "buzz.h"
 #include "Humidity.h"
 #include "queue.h"
 #include "rtc.h"
 #include "app_config.h"
+#include "lfs.h"
 
 //主程
 osThreadId_t gui_task_hdl;
@@ -79,9 +79,6 @@ osSemaphoreAttr_t rtc_sema_attr={
     .name="sema rtc",
 };
 
-
-
-
 /**
   * @brief  FreeRTOS initialization
   * @param  None
@@ -106,52 +103,31 @@ void MX_FREERTOS_Init(void)
     rtc_task_hdl= osThreadNew(rtcTask, NULL, &rtc_Task_attributes);
 }
 
+static uint32_t s_start_sec = 0;        /* 系统启动时的RTC秒数 */
+uint32_t g_elapsed_sec = 0;             /* 已运行秒数（供guiTask显示） */
+
+/** @brief CJHR-31 实测电阻值 (kΩ × 100), humidityACTask 每秒更新 */
+volatile uint32_t g_hum_res_ohm_x100 = 0;
+
 void rtcTask(void* arg)
 {
     for (;;)
     {
         osSemaphoreAcquire(rtc_sema, osWaitForever);
         rtc_get_time();
-        osThreadFlagsSet(gui_task_hdl,1);
-        // ble_send("%04d-%02d-%02d %01d %02d:%02d:%02d\n",calendar.year,calendar.month,calendar.date,calendar.week,calendar.hour,calendar.min,calendar.sec);
 
-
-
-    }
-}
-void guiTask(void* argument)
-{
-    u8 update_static=0;
-    for (;;)
-    {
-        if (update_static==0){
-            //printf("Hello\r\n");
-            Gui_showimage_12x12("/images/days.bin", 0, 0); //运行天数
-            Gui_showimage_12x12("/images/fire.bin", 30, 0); //当前温度
-            Gui_showimage_12x12("/images/buzz.bin", 88, 0); //当前喇叭状态
-            Gui_showimage_12x12("/images/ble.bin", 102, 0); //蓝牙状态
-            Gui_showimage_12x12("/images/alarm1.bin", 116, 0); //n闹钟
-            Gui_showimage_12x12("/images/humidity.bin", 0, 15); //湿度状态
-            Gui_showimage_12x12("/images/fan.bin", 36, 15); //风扇状态
-
-            //
-            Gui_DrawLine(0, 97, 128, 97,GRAY);
-            Gui_DrawLine(0, 124, 128, 124,GRAY);
-            Gui_showimage_24x24("/images/chicken.bin", 0, 100); //保小鸡模式
-            Gui_showimage_24x24("/images/egg.bin", 24, 100); //鸡蛋模式
-
-            // osDelay(800);
-            Gui_showimage_12x12("/images/alarm2.bin", 116, 0); //闹铃抖动
-            Gui_showimage_12x12("/images/alarm1.bin", 0, 133); //设置闹钟时间
-            Gui_showimage_12x12("/images/clock.bin", 0, 147); //时间
-            update_static=1;
-             }
-        uint32_t rtc_flag=osThreadFlagsWait(0x01,osFlagsWaitAny,osWaitForever);
-        if (( rtc_flag&0x1)  !=0)  {
-            print_string_gui(13,148,"%02d-%02d-%02d %01d %02d:%02d:%02d\n",calendar.year-2000,calendar.month,calendar.date,calendar.week,calendar.hour,calendar.min,calendar.sec);
+        // 记录启动时间（首次运行）
+        if (s_start_sec == 0) {
+            s_start_sec = rtc_date2sec(calendar.year, calendar.month, calendar.date,
+                                        calendar.hour, calendar.min, calendar.sec);
         }
+        // 计算已运行秒数
+        uint32_t now_sec = rtc_date2sec(calendar.year, calendar.month, calendar.date,
+                                         calendar.hour, calendar.min, calendar.sec);
+        g_elapsed_sec = now_sec - s_start_sec;
+
+        osThreadFlagsSet(gui_task_hdl, GUI_FLAG_RTC_UPDATE);
     }
-    /* USER CODE END StartDefaultTask */
 }
 
 void lcdLightTask(void* argument)
@@ -173,25 +149,38 @@ void humidityACTask(void* argument)
     //  print_string_gui(0, 0, "humidity:%.2f KR",0.0);
     while (1)
     {
-        u32 sum = 0, flag = 0;
-        u16 tmp = 0;
+        /*
+         * 分压电路: 3.3V ─ CJHR ─┬─ 47kΩ ─ GND
+         *                       PA4 (ADC)
+         * V_47k = tmp / 4096 * 3.3
+         * R_cjhr = (3.3 / V_47k - 1) * 47 (kΩ)
+         */
+        u32 sum = 0, valid_cnt = 0;
+        u32 flag;
 
         for (int i = 0; i < 3; i++)
         {
-            flag = osThreadFlagsWait(0x01,osFlagsWaitAll,osWaitForever);
+            flag = osThreadFlagsWait(0x01, osFlagsWaitAll, osWaitForever);
             if (flag & 0x1)
             {
                 HAL_ADC_Start(&adc2_handler);
-                tmp = humidity_get_value_single();
-                sum += tmp;
+                u16 tmp = humidity_get_value_single();
+
+                /* 排除无效采样值 (ADC 12bit, 0=超时, ≥4095=饱和) */
+                if (tmp > 0 && tmp < 4095) {
+                    sum += tmp;
+                    valid_cnt++;
+                }
             }
         }
-        tmp = sum / 3;
-        //
-        //vol=tmp/4096*3.3
-        //3.3*27/(R+27)=vol
 
-        float res = ((float)4096 / tmp - 1) * 27;
+        if (valid_cnt > 0)
+        {
+            u16 tmp = (u16)(sum / valid_cnt);
+            float res = 47.0f * (4096.0f / tmp - 1.0f);
+            g_hum_res_ohm_x100 = (uint32_t)(res * 100.0f + 0.5f);
+        }
+        /* 无有效样本则保持上次值，避免界面跳变 */
 
         osDelay(100);
     }

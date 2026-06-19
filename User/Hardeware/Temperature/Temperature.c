@@ -112,7 +112,6 @@ void ds18b20_start(void)
 */
 short ds18b20_get_temperature(void)
 {
-    uint8_t flag = 1; /* 默认温度为正数 */
     uint8_t TL, TH;
     short temp;
     ds18b20_start(); /* ds1820 start convert */
@@ -122,26 +121,46 @@ short ds18b20_get_temperature(void)
     ds18b20_write_byte(0xbe); /* convert */
     TL = ds18b20_read_byte(); /* LSB */
     TH = ds18b20_read_byte(); /* MSB */
-    if (TH > 7)
-    { /* 温度为负，查看 DS18B20 的温度表示法与计算机存储正负数据的原理一致：
-    正数补码为寄存器存储的数据自身，负数补码为寄存器存储值按位取反后+1
-    所以我们直接取它实际的负数部分，但负数的补码为取反后加一，但考虑到低位可能+1 后
-    有进位和代码冗余，我们这里先暂时没有作+1 的处理，这里需要留意 */
-        TH = ~TH;
-        TL = ~TL;
-        flag = 0;
-    }
-    temp = TH; /* 获得高八位 */
-    temp <<= 8;
-    temp += TL; /* 获得低八位 */
-    /* 转换成实际温度 */
-    if (flag == 0)
-    { /* 将温度转换成负温度，这里的+1 参考前面的说明 */
-        temp = (double)(temp+1) * 0.625;
-        temp = -temp;
-    } else
-    {
-        temp = (double)temp * 0.625;
-    }
+
+    /* 将 (TH << 8 | TL) 当作有符号 16-bit 原始值 */
+    temp = (short)(((uint16_t)TH << 8U) | TL);
+
+    /* 转换到 x10 格式：原始值 * 0.0625 * 10 = 原始值 * 10 / 16 */
+    temp = (short)((int)temp * 10 / 16);
+
+    return temp;
+}
+
+/**
+* @brief 从 ds18b20 读取温度(精度： 0.1C) — 不启动转换，仅读取上次结果
+* @param 无
+* @retval 温度值 （-550~1250），通讯失败返回 0x7FFF
+* @note 调用前需保证 ds18b20_start() 已执行且转换完成。
+*      返回的温度值放大了 10 倍，实际使用时要除以 10 才是实际温度。
+*/
+short ds18b20_read_temperature(void)
+{
+    uint8_t TL, TH;
+    short temp;
+
+    ds18b20_reset();
+    if (ds18b20_check() != 0)       /* 设备不存在或通讯异常 */
+        return 0x7FFF;
+
+    ds18b20_write_byte(0xcc); /* skip rom */
+    ds18b20_write_byte(0xbe); /* read scratchpad */
+    TL = ds18b20_read_byte(); /* LSB */
+    TH = ds18b20_read_byte(); /* MSB */
+
+    /* 将 (TH << 8 | TL) 当作有符号 16-bit 原始值 */
+    temp = (short)(((uint16_t)TH << 8U) | TL);
+
+    /* 转换到 x10 格式：原始值 * 0.0625 * 10 = 原始值 * 10 / 16 */
+    temp = (short)((int)temp * 10 / 16);
+
+    /* 二次校验：DS18B20 工作温度范围 -55°C ~ +125°C (-550 ~ 1250 in x10) */
+    if (temp < -550 || temp > 1250)
+        return 0x7FFF;
+
     return temp;
 }

@@ -327,6 +327,33 @@ void Gui_ShowChar(uint16_t x, uint16_t y, uint8_t num, uint16_t fc, uint16_t bc,
 
 }
 
+void Gui_ShowChar_Flash1206(uint16_t x, uint16_t y, uint8_t num, uint16_t fc, uint16_t bc)
+{
+    if (num < ' ' || num > '~')
+    {
+        num = ' ';
+    }
+
+    const uint8_t *buf = ascii_1206[num - ' '];
+
+    Lcd_SetRegion(x, y, x + 5, y + 11);
+
+    for (uint8_t i = 0; i < 12; i++)
+    {
+        for (uint8_t j = 0; j < 6; j++)
+        {
+            if (buf[i] & (0x01 << j))
+            {
+                Lcd_WriteData_16Bit(fc);
+            }
+            else
+            {
+                Lcd_WriteData_16Bit(bc);
+            }
+        }
+    }
+}
+
 /*
 *   函数内容：  显示字符串
 *   函数参数：  x,y---起始坐标
@@ -341,7 +368,8 @@ void Gui_ShowString(uint16_t x, uint16_t y, const uint8_t* p, uint16_t fc, uint1
 {
     while (*p != '\0')
     {
-        Gui_ShowChar(x, y, *p, fc, bc, sizey, mode);
+        // Gui_ShowChar(x, y, *p, fc, bc, sizey, mode);
+        Gui_ShowChar_Flash1206(x,y,*p,fc,bc);
         x += sizey / 2;
         p++;
     }
@@ -561,36 +589,97 @@ void Gui_showimage_24x24(const unsigned char* path, u8 x, u8 y)
 {
     //打开文件
     lfs_file_t file;
-    u8 buf[1152]={0};
+    u8 row_buf[48]; // 一行24像素 × 2字节 = 48字节
 
 
     int16_t err= lfs_file_open(&lfs,&file,path,LFS_O_RDONLY);
     if (err)
     {
         ble_send("file open err\n");
+        return;
     }
-    err= lfs_file_read(&lfs,&file,buf,1152);
-    if (err)
-    {
-        ///ble_send("file read %d\n",err);
-    }
-    lfs_file_close(&lfs,&file);
-    //Lcd_Fill(x,y,x+16,y+16,COLOR_MAIN);
     Lcd_SetRegion(x, y, x + 23, y + 23);
-    u8 row = 0, col = 0;
-    for (row = 0; row < 24; row++) //ROW loop
+    for (u8 row = 0; row < 24; row++) //ROW loop
     {
-        for (col = 0; col < 24; col++) //column loop
+        err = lfs_file_read(&lfs, &file, row_buf, 48);
+        if (err != 48) break;
+
+        for (u8 col = 0; col < 24; col++) //column loop
         {
             //高字节在后
             //目前为LSB,如果取模为MSB，那么 将下方两行代码调换位置
-            Lcd_WriteData(buf[2*col+2*row*24+1]);
-            Lcd_WriteData(buf[2*col+2*row*24]);
+            Lcd_WriteData(row_buf[2*col+1]);
+            Lcd_WriteData(row_buf[2*col]);
         }
+    }
+    lfs_file_close(&lfs,&file);
+}
+
+void Gui_showimage_48x24(const unsigned char* path, u8 x, u8 y)
+{    //打开文件
+    lfs_file_t file;
+    u8 row_buf[96]; // 一行48像素 × 2字节 = 96字节
+
+
+    int16_t err= lfs_file_open(&lfs,&file,path,LFS_O_RDONLY);
+    if (err)
+    {
+        ble_send("file open err\n");
+        return;
+    }
+    Lcd_SetRegion(x, y, x + 47, y + 23);
+    for (u8 row = 0; row < 24; row++) //ROW loop
+    {
+        err = lfs_file_read(&lfs, &file, row_buf, 96);
+        if (err != 96) break;
+
+        for (u8 col = 0; col < 48; col++) //column loop
+        {
+            //高字节在后
+            //目前为LSB,如果取模为MSB，那么 将下方两行代码调换位置
+            Lcd_WriteData(row_buf[2*col+1]);
+            Lcd_WriteData(row_buf[2*col]);
+        }
+    }
+    lfs_file_close(&lfs,&file);
+}
+
+/**
+ * @brief 绘制进度条
+ * @param x, y 左上角坐标
+ * @param w, h 总宽度/高度（含边框）
+ * @param percent 进度百分比 (0-100)
+ * @param bar_color 填充部分颜色
+ * @param bg_color 边框颜色
+ */
+void Gui_DrawProgressBar(u16 x, u16 y, u16 w, u16 h, u8 percent, u16 bar_color, u16 bg_color)
+{
+    if (percent > 100) percent = 100;
+
+    // 画边框（1px）
+    Gui_DrawLine(x, y, x + w - 1, y, bg_color);                    // 上
+    Gui_DrawLine(x + w - 1, y, x + w - 1, y + h - 1, bg_color);   // 右
+    Gui_DrawLine(x, y + h - 1, x + w - 1, y + h - 1, bg_color);   // 下
+    Gui_DrawLine(x, y, x, y + h - 1, bg_color);                    // 左
+
+    // 内部填充区域（缩进1px边框）
+    u16 inner_x = x + 1;
+    u16 inner_y = y + 1;
+    u16 inner_w = w - 2;
+    u16 inner_h = h - 2;
+    u16 fill_w = (u16)((u32)inner_w * percent / 100);   // 已填充像素宽度
+
+    if (fill_w > 0)
+    {
+        Lcd_Fill(inner_x, inner_y, inner_x + fill_w - 1, inner_y + inner_h - 1, bar_color);
+    }
+    if (fill_w < inner_w)
+    {
+        Lcd_Fill(inner_x + fill_w, inner_y, inner_x + inner_w - 1, inner_y + inner_h - 1, BLACK);
     }
 }
 
-void print_string_gui(u8 x, u8 y, const char* fmt, ...)
+void print_string_gui(u8 x,u8 y,u16 fc,u16 bc,const char *fmt,...)
 {
 
      //osMutexAcquire(mutex_tft, osWaitForever);
@@ -599,7 +688,7 @@ void print_string_gui(u8 x, u8 y, const char* fmt, ...)
     va_start(arp, fmt);
     xsprintf_m(data_ui, fmt, arp); //打印到gui数据
     va_end(arp);
-    Gui_ShowString(x, y, data_ui,RED,WHITE, 12, 0);
+    Gui_ShowString(x, y, data_ui,fc,bc, 12, 0);
      //osMutexRelease(mutex_tft);
 }
 
